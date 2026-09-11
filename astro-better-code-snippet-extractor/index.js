@@ -1,3 +1,3 @@
-// Astro components are imported directly by path; this file satisfies the package "." export.
+// Astro components are imported directly by path:
 // import ExtractedCode from 'astro-better-code-snippet-extractor/ExtractedCode.astro';
-export {};
+export { extractedCodeSnippets } from './integration.js';

@@ -1,11 +1,12 @@
 {
   "name": "astro-better-code-snippet-extractor",
   "version": "0.1.0",
-  "description": "Astro component for loading Bluehawk-annotated code snippets and local source files",
+  "description": "Astro component and integration for loading Bluehawk-annotated code snippets and local source files",
   "type": "module",
   "exports": {
     ".": "./index.js",
-    "./ExtractedCode.astro": "./ExtractedCode.astro"
+    "./ExtractedCode.astro": "./ExtractedCode.astro",
+    "./integration.js": "./integration.js"
   },
   "files": [
     "*.js",

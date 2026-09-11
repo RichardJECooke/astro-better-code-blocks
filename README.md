@@ -213,6 +213,50 @@ Useful when your code examples live in a separate tested project rather than inl
 npm install astro-better-code-snippet-extractor
 ```
 
+### Astro integration
+
+The package includes an Astro integration that runs `bluehawk snip` automatically at build time and dev server start, replacing any manual `bluehawk snip` script calls.
+
+In `astro.config.ts`:
+
+```ts
+import { extractedCodeSnippets } from 'astro-better-code-snippet-extractor';
+
+export default defineConfig({
+  integrations: [
+    extractedCodeSnippets(),
+    // ...
+  ],
+});
+```
+
+The integration hashes the source directory on each startup and skips re-running bluehawk if nothing has changed, so dev server restarts are fast.
+
+Options:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `sourceDir` | `'extractedcode'` | Directory containing tested source projects, relative to the Astro project root |
+| `outputDir` | `'src/generated-code-snippets'` | Where generated snippets are written |
+| `ignore` | (common patterns) | Array of glob patterns forwarded to bluehawk `--ignore` |
+| `plugin` | - | Optional bluehawk plugin path, relative to the project root |
+
+If you use a custom bluehawk language plugin:
+
+```ts
+extractedCodeSnippets({ plugin: 'bluehawk-languages.js' })
+```
+
+### GitHub Actions templates
+
+`templates/github-actions/` in the package repository contains three ready-to-copy workflow templates:
+
+- `validate-snippets.yml` - validates Bluehawk annotations on PRs
+- `test-extractedcode.yml` - runs `tests/test.sh` per changed directory on PRs (parallel matrix)
+- `export-to-github.yml` - mirrors changed directories to external repos on push to main
+
+Each template has `# REPLACE:` comments marking the parts you need to customize.
+
 ### Usage
 
 ```astro
@@ -236,7 +280,7 @@ import ExtractedCode from 'astro-better-code-snippet-extractor/ExtractedCode.ast
 
 ### How it works
 
-Paths containing `.snippet.` are resolved relative to `snippetRoot` (default: `src/generated-code-snippets`). All other paths are resolved relative to `sourceRoot` (default: `localcode`). Both defaults assume the standard Bluehawk workflow where you run `bluehawk snip` into `src/generated-code-snippets` and check in the annotated source under `localcode/`.
+Paths containing `.snippet.` are resolved relative to `snippetRoot` (default: `src/generated-code-snippets`). All other paths are resolved relative to `sourceRoot` (default: `extractedcode`). Both defaults assume the standard Bluehawk workflow where you run `bluehawk snip` into `src/generated-code-snippets` and check in the annotated source under `extractedcode/`.
 
 ### Props
 
@@ -246,7 +290,7 @@ Paths containing `.snippet.` are resolved relative to `snippetRoot` (default: `s
 | `lang` | `string` | `'plaintext'` | Prism language identifier |
 | `title` | `string` | - | Optional title tab |
 | `snippetRoot` | `string` | `src/generated-code-snippets` | Root for snippet files |
-| `sourceRoot` | `string` | `localcode` | Root for source files |
+| `sourceRoot` | `string` | `extractedcode` | Root for source files |
 
 ### With titles
 

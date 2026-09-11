@@ -24,7 +24,7 @@ interface Props {
   snippetRoot?: string;
   /**
    * Root directory for raw source files.
-   * @default path.join(process.cwd(), 'localcode')
+   * @default path.join(process.cwd(), 'extractedcode')
    */
   sourceRoot?: string;
 }
@@ -34,7 +34,7 @@ const {
   lang = 'plaintext',
   title,
   snippetRoot = path.join(process.cwd(), 'src', 'generated-code-snippets'),
-  sourceRoot = path.join(process.cwd(), 'localcode'),
+  sourceRoot = path.join(process.cwd(), 'extractedcode'),
 } = Astro.props;
 
 const filePath = src.includes('.snippet.')
