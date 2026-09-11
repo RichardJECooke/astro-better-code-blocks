@@ -20,25 +20,27 @@ export function remarkShellSession({ prompt = '$ ' } = {}) {
 
       const lines = node.value.split('\n');
       let continuation = false;
+      let openQuote = false;
 
       node.value = lines.map(line => {
-        // preserve empty lines as-is, reset continuation
+        // empty lines reset all state
         if (!line.trim()) {
           continuation = false;
+          openQuote = false;
           return line;
         }
-        // continuation lines (after a trailing \) get no new prompt
-        if (continuation) {
-          continuation = line.trimEnd().endsWith('\\');
-          return line;
-        }
-        // lines already have a prompt
-        if (line.startsWith('$ ') || line.startsWith('# ')) {
-          continuation = line.trimEnd().endsWith('\\');
-          return line;
-        }
-        // line has no prompt -- prepend the default one
-        continuation = line.trimEnd().endsWith('\\');
+
+        const isContinuation = continuation || openQuote;
+
+        // update state from this line's content
+        const endsWithBackslash = line.trimEnd().endsWith('\\');
+        // count unescaped single quotes to track whether a quoted argument spans lines
+        const quoteCount = (line.match(/'/g) || []).length;
+        openQuote = openQuote !== (quoteCount % 2 === 1);
+        continuation = endsWithBackslash;
+
+        if (isContinuation) return line;
+        if (line.startsWith('$ ') || line.startsWith('# ')) return line;
         return prompt + line;
       }).join('\n');
     });
