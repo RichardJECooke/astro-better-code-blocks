@@ -122,7 +122,12 @@ export function extractedCodeSnippets({
           if (plugin) args.push('--plugin', plugin);
           for (const pattern of ignore) args.push('--ignore', pattern);
 
-          const result = spawnSync('npx', args, { encoding: 'utf-8', cwd: root });
+          // NODE_ENV=development causes bluehawk to include .ts in its extension list,
+          // which matches .d.ts files; Node 22.6+ then fails when trying to strip types
+          // from .d.ts files in node_modules.
+          const spawnEnv = { ...process.env };
+          delete spawnEnv.NODE_ENV;
+          const result = spawnSync('npx', args, { encoding: 'utf-8', cwd: root, env: spawnEnv });
           const stdout = result.stdout || '';
           const stderr = result.stderr || '';
 
