@@ -199,7 +199,7 @@ export function rehypeCodeBlocks({
     });
 
     // Prism component names for common aliases (sh→bash, ts→typescript, etc.)
-    const LANG_ALIASES = { sh: 'bash', zsh: 'bash', ts: 'typescript', md: 'markdown', mdx: 'jsx' };
+    const LANG_ALIASES = { sh: 'bash', zsh: 'bash', ts: 'typescript', md: 'markdown', mdx: 'jsx', astro: 'jsx' };
 
     for (const { preIndex, preParent, language, meta, code } of tasks) {
       const { highlight, collapse, diff, title, escape } = parseMeta(meta);
@@ -207,19 +207,16 @@ export function rehypeCodeBlocks({
       let resultNode;
 
       if (escape) {
-        // Bypass Prism; use a plain text node so the HAST serializer handles
-        // HTML escaping. Avoids `raw` node type which remark-mdx rejects.
-        resultNode = {
-          type: 'element',
-          tagName: 'pre',
-          properties: { className: [`language-${language}`], 'data-language': language },
-          children: [{
-            type: 'element',
-            tagName: 'code',
-            properties: { className: [`language-${language}`] },
-            children: [{ type: 'text', value: code }],
-          }],
-        };
+        // Highlight with JSX grammar. Prism HTML-escapes < and > within token
+        // spans, so component tags like <Tabs> display as literal text instead
+        // of rendering. data-language preserves the declared language label.
+        const { html, classLanguage } = await runHighlighterWithAstro('jsx', code);
+        const fragment = fromHtml(
+          `<pre class="${classLanguage}" data-language="${language}"><code class="${classLanguage}">${html}</code></pre>`,
+          { fragment: true }
+        );
+        removePosition(fragment, { force: true });
+        resultNode = fragment.children[0];
       } else {
         const prismLang = LANG_ALIASES[language] ?? language;
         const { html, classLanguage } = await runHighlighterWithAstro(prismLang, code);
