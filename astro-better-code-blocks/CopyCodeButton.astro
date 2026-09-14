@@ -17,6 +17,23 @@
   const svgUse = (id: string) =>
     `<svg width="16" height="16" fill="currentColor" aria-hidden="true"><use href="${id}"/></svg>`;
 
+  // Walk DOM text nodes, skipping subtrees marked data-no-copy or with shell-symbol class.
+  function extractText(root: Element): string {
+    const parts: string[] = [];
+    const walk = (node: Node): void => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as Element;
+        if (el.hasAttribute('data-no-copy')) return;
+        if (typeof el.className === 'string' && el.className.includes('shell-symbol')) return;
+        el.childNodes.forEach(walk);
+      } else if (node.nodeType === Node.TEXT_NODE) {
+        parts.push(node.nodeValue ?? '');
+      }
+    };
+    root.childNodes.forEach(walk);
+    return parts.join('');
+  }
+
   class CopyCodeButton extends HTMLElement {
     #timeout: number | undefined;
 
@@ -30,20 +47,13 @@
       const code = wrapper?.querySelector('code');
       if (!code) return;
 
-      // Build copy text from .line spans, skipping collapse toggles and
-      // any [data-no-copy] elements (shell-session prompts, etc.)
       const lineSpans = code.querySelectorAll<HTMLElement>('.line:not(.line-collapse-toggle)');
       let text: string;
+
       if (lineSpans.length) {
-        text = Array.from(lineSpans).map(span => {
-          const clone = span.cloneNode(true) as HTMLElement;
-          clone.querySelectorAll('[data-no-copy]').forEach(el => el.remove());
-          return clone.innerText;
-        }).join('\n');
+        text = Array.from(lineSpans).map(span => extractText(span)).join('\n');
       } else {
-        const clone = code.cloneNode(true) as HTMLElement;
-        clone.querySelectorAll('[data-no-copy]').forEach(el => el.remove());
-        text = clone.innerText;
+        text = extractText(code).trim();
       }
 
       navigator.clipboard.writeText(text).then(() => {

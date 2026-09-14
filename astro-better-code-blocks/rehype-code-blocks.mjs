@@ -16,6 +16,17 @@ import { toText } from 'hast-util-to-text';
 import { fromHtml } from 'hast-util-from-html';
 import { removePosition } from 'unist-util-remove-position';
 import { runHighlighterWithAstro } from '@astrojs/prism/dist/highlighter';
+import Prism from 'prismjs';
+import 'prismjs/components/prism-markup.js';
+import 'prismjs/components/prism-javascript.js';
+import 'prismjs/components/prism-bash.js';
+import 'prismjs/components/prism-shell-session.js';
+import 'prismjs/components/prism-typescript.js';
+import 'prismjs/components/prism-yaml.js';
+import 'prismjs/components/prism-markdown.js';
+import 'prismjs/components/prism-css.js';
+import 'prismjs/components/prism-json.js';
+import 'prismjs/components/prism-jsx.js';
 
 const DEFAULT_EXCLUDE = ['mermaid'];
 
@@ -34,7 +45,7 @@ function parseRanges(spec) {
 }
 
 function parseMeta(meta) {
-  if (!meta) return { highlight: new Set(), collapse: new Set(), diff: false, title: null };
+  if (!meta) return { highlight: new Set(), collapse: new Set(), diff: false, title: null, escape: false };
   const hMatch = meta.match(/\{([^}]+)\}/);
   const cMatch = meta.match(/\[([^\]]+)\]/);
   const tMatch = meta.match(/title="([^"]+)"/);
@@ -43,7 +54,16 @@ function parseMeta(meta) {
     collapse: parseRanges(cMatch?.[1]),
     diff: /\bdiff\b/.test(meta),
     title: tMatch?.[1] ?? null,
+    escape: /\bescape\b/.test(meta),
   };
+}
+
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 /**
@@ -185,38 +205,63 @@ export function rehypeCodeBlocks({
       tasks.push({ preNode, preIndex, preParent, language, meta, code });
     });
 
+    // Prism component names for common aliases (sh→bash, ts→typescript, etc.)
+    const LANG_ALIASES = { sh: 'bash', zsh: 'bash', ts: 'typescript', md: 'markdown', mdx: 'jsx' };
+
     for (const { preIndex, preParent, language, meta, code } of tasks) {
-      const { highlight, collapse, diff, title } = parseMeta(meta);
-      const { html, classLanguage } = await runHighlighterWithAstro(language, code);
+      const { highlight, collapse, diff, title, escape } = parseMeta(meta);
 
-      const fragment = fromHtml(
-        `<pre class="${classLanguage}" data-language="${language}"><code class="${classLanguage}">${html}</code></pre>`,
-        { fragment: true }
-      );
-      removePosition(fragment, { force: true });
-      const newPre = fragment.children[0];
-      const newCode = newPre.children[0];
+      let resultNode;
 
-      if (highlight.size > 0 || collapse.size > 0 || diff) {
-        const rawLines = splitIntoLines(newCode.children);
-        newCode.children = buildLineNodes(rawLines, highlight, collapse, diff);
-        newPre.properties['data-has-line-meta'] = 'true';
-      }
+      if (escape) {
+        // Bypass Prism; HTML-escape content so tags display as literal text.
+        // Useful for code examples that contain MDX/JSX component syntax.
+        // Note: syntax highlighting is not applied in escape mode.
+        const safeHtml = escapeHtml(code);
+        resultNode = {
+          type: 'element',
+          tagName: 'pre',
+          properties: { className: [`language-${language}`], 'data-language': language },
+          children: [{
+            type: 'element',
+            tagName: 'code',
+            properties: { className: [`language-${language}`] },
+            children: [{ type: 'raw', value: safeHtml }],
+          }],
+        };
+      } else {
+        const prismLang = LANG_ALIASES[language] ?? language;
+        const { html, classLanguage } = await runHighlighterWithAstro(prismLang, code);
 
-      if (language === 'shell-session') {
-        markShellPrompts(newCode.children);
+        const fragment = fromHtml(
+          `<pre class="${classLanguage}" data-language="${language}"><code class="${classLanguage}">${html}</code></pre>`,
+          { fragment: true }
+        );
+        removePosition(fragment, { force: true });
+        const newPre = fragment.children[0];
+        const newCode = newPre.children[0];
+
+        if (highlight.size > 0 || collapse.size > 0 || diff) {
+          const rawLines = splitIntoLines(newCode.children);
+          newCode.children = buildLineNodes(rawLines, highlight, collapse, diff);
+          newPre.properties['data-has-line-meta'] = 'true';
+        }
+
+        if (language === 'shell-session') {
+          markShellPrompts(newCode.children);
+        }
+
+        resultNode = newPre;
       }
 
       // Build the replacement node: optionally wrap with copy button, then title
-      let resultNode = newPre;
-
       if (copyButton) {
         resultNode = {
           type: 'element',
           tagName: 'div',
           properties: { className: ['ccb-wrapper'] },
           children: [
-            newPre,
+            resultNode,
             { type: 'element', tagName: 'copy-code-button', properties: {}, children: [] },
           ],
         };
