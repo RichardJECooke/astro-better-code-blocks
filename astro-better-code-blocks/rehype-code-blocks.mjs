@@ -58,13 +58,6 @@ function parseMeta(meta) {
   };
 }
 
-function escapeHtml(str) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
 
 /**
  * Split hast nodes on newlines, one array of children per line.
@@ -214,10 +207,8 @@ export function rehypeCodeBlocks({
       let resultNode;
 
       if (escape) {
-        // Bypass Prism; HTML-escape content so tags display as literal text.
-        // Useful for code examples that contain MDX/JSX component syntax.
-        // Note: syntax highlighting is not applied in escape mode.
-        const safeHtml = escapeHtml(code);
+        // Bypass Prism; use a plain text node so the HAST serializer handles
+        // HTML escaping. Avoids `raw` node type which remark-mdx rejects.
         resultNode = {
           type: 'element',
           tagName: 'pre',
@@ -226,7 +217,7 @@ export function rehypeCodeBlocks({
             type: 'element',
             tagName: 'code',
             properties: { className: [`language-${language}`] },
-            children: [{ type: 'raw', value: safeHtml }],
+            children: [{ type: 'text', value: code }],
           }],
         };
       } else {
